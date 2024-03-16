@@ -18,7 +18,7 @@ jobs:
           registry-url: https://registry.npmjs.org/
       - run: npm pkg set version=${{ github.event.release.tag_name }}
       - run: |
-          NPM_SCOPE="${{ env.NPM_SCOPE || secrets.NPM_SCOPE || github.repository_owner }}"
+          NPM_SCOPE="${{ vars.NPM_SCOPE || env.NPM_SCOPE || secrets.NPM_SCOPE || github.repository_owner }}"
           PACKAGE_NAME="@${NPM_SCOPE##*@}/${{ github.event.repository.name }}"
           npm pkg set name="${PACKAGE_NAME}"
           echo "PACKAGE_NAME=${PACKAGE_NAME}"
