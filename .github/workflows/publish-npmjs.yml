@@ -18,11 +18,8 @@ jobs:
           registry-url: https://registry.npmjs.org/
       - run: npm pkg set version=${{ github.event.release.tag_name }}
       - run: |
-          if [ -z "$NPM_SCOPE" ]; then
-            npm pkg set name='@${{ github.repository_owner }}/${{ github.event.repository.name }}'
-          else
-            npm pkg set name='${{ NPM_SCOPE }}/${{ github.event.repository.name }}'
-          fi
+          ${NPM_SCOPE=$NPM_SCOPE || ${{ github.repository_owner }}}
+          npm pkg set name="${{ NPM_SCOPE }}/${{ github.event.repository.name }}"
       - run: npm pkg set 'repository.url'="${{ github.event.repository.html_url }}.git"
       - run: npm ci
       - run: npm publish --access public --registry=https://registry.npmjs.org
