@@ -16,7 +16,18 @@ jobs:
         with:
           node-version: '20.x'
           registry-url: https://registry.npmjs.org/
-          scope: '@scdb'
+      - run: |
+          if [ -z "$NPM_SCOPE" ]; then
+            sed -i '' "s|@utilcode/simple-template|@${{ github.event.repository.name }}|g" package.json
+          else
+            NPM_SCOPE=${NPM_SCOPE}
+            REPOSITORY_NAME=${{github.event.repository.name}}
+            REPOSITORY_NAME=${REPOSITORY_NAME##*/}
+            sed -i '' "s|@utilcode/simple-template|${{ github.event.repository.name }}|g" package.json
+          fi
+      - run: sed -i '' "s|@https://github.com/utilcode/simple-template|https://github.com/${{ github.event.repository.name }}|g" package.json
+      - run: |
+            sed -i '' "s|\"version\": \"[^\"]*\"|\"version\": \"${{ github.event.release.tag_name }}\"|g" package.json
       - run: npm ci
       - run: npm publish --access public --registry=https://registry.npmjs.org
         env:

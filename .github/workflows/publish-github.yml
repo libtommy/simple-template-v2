@@ -19,6 +19,11 @@ jobs:
           with:
             node-version: '20.x'
             registry-url: https://npm.pkg.github.com/
+        - run: sed -i '' "s|@utilcode/simple-template|@${{ github.event.repository.name }}|g" package.json
+        - run: sed -i '' "s|@https://github.com/utilcode/simple-template|https://github.com/${{ github.event.repository.name }}|g" package.json
+        # replace version
+        - run: |
+            sed -i '' "s|\"version\": \"[^\"]*\"|\"version\": \"${{ github.event.release.tag_name }}\"|g" package.json
         - run: npm ci
         - run: npm publish --registry=https://npm.pkg.github.com
           env:
