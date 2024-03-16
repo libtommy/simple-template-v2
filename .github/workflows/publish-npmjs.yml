@@ -21,7 +21,7 @@ jobs:
           if [ -z "$NPM_SCOPE" ]; then
             npm pkg set name='@${{ github.repository_owner }}/${{ github.event.repository.name }}'
           else
-            npm pkg set name='${{ $NPM_SCOPE }}/${{ github.event.repository.name }}'
+            npm pkg set name='${{ NPM_SCOPE }}/${{ github.event.repository.name }}'
           fi
       - run: npm pkg set 'repository.url'="${{ github.event.repository.html_url }}.git"
       - run: npm ci
