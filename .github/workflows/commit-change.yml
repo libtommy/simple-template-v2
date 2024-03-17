@@ -1,0 +1,46 @@
+name: Commit Change
+on:
+  release:
+    types: [created]
+
+jobs:
+  publish-github:
+      runs-on: ubuntu-latest
+      permissions:
+        contents: write
+      steps:
+        - uses: actions/checkout@v4
+        - uses: actions/setup-node@v4
+          with:
+            node-version: '20.x'
+        - run: npm pkg set version=${{ github.event.release.tag_name }}
+        - run: |
+            NPM_SCOPE="${{ vars.NPM_SCOPE || env.NPM_SCOPE || secrets.NPM_SCOPE || github.repository_owner }}"
+            PACKAGE_NAME="@${NPM_SCOPE##*@}/${{ github.event.repository.name }}"
+            npm pkg set name="${PACKAGE_NAME}"
+            echo "PACKAGE_NAME=${PACKAGE_NAME}"
+        - run: npm pkg set 'repository.url'="${{ github.event.repository.html_url }}.git"
+        - run: |
+            INSTALL_PACKAGE="${{ vars.PACKAGES || env.PACKAGES || secrets.PACKAGES }}"
+            if [ ! -z "${INSTALL_PACKAGE}" ]; then
+              npm install ${INSTALL_PACKAGE}
+            fi
+        - run: npm ci
+        - run: |
+            git config user.name github-actions
+            git config user.email github-actions@github.com
+            git add package.json package-lock.json
+            git commit -m "bump version"
+            git push origin main
+            git tag -fa ${{ github.event.release.tag_name }} -m "Release v${{ github.event.release.tag_name }}"
+            git push origin --force --tags
+        - name: Get Tag Name
+          id: get_tag_name
+          run: |
+            echo "::set-output name=tag_name::${GITHUB_REF#refs/tags/}"
+
+        - name: Upload Tag Name as Artifact
+          uses: actions/upload-artifact@v4
+          with:
+            name: tag-name
+            path: ${{ steps.get_tag_name.outputs.tag_name }}
