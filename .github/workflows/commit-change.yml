@@ -39,13 +39,26 @@ jobs:
 
           for package in $(cat .installed); do
             if [ "${{ github.event.repository.full_name }}" != "${package}" ]; then
+              if [ ! -z "${{ vars.IGNORE_LIST || env.IGNORE_LIST || secrets.IGNORE_LIST }}" ]; then
+                if [[ "${{ vars.IGNORE_LIST || env.IGNORE_LIST || secrets.IGNORE_LIST }}" =~ (^|[[:space:]])${package}($|[[:space:]]) ]]; then
+                  continue
+                fi
+              fi
               curl -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -s "https://raw.githubusercontent.com/${package}/main/package.json" | jq -r '.name' >> .packages
+              echo "Done: ${package}"
             fi
           done
 
+          echo "Packages: $(cat .packages)";
+
           for package in $(cat .packages); do
-            npm install ${package}
-          done
+            if [ ! -z "${{ vars.IGNORE_LIST || env.IGNORE_LIST || secrets.IGNORE_LIST }}" ]; then
+              if [[ "${{ vars.IGNORE_LIST || env.IGNORE_LIST || secrets.IGNORE_LIST }}" =~ (^|[[:space:]])${package}($|[[:space:]]) ]]; then
+                continue
+              fi
+            fi
+            npm install ${package};
+          done;
 
           rm .packages
 
