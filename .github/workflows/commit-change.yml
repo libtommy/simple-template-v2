@@ -4,51 +4,75 @@ on:
     types: [created]
 
 jobs:
-  publish-github:
-      runs-on: ubuntu-latest
-      permissions:
-        contents: write
-      steps:
-        - uses: actions/checkout@v4
-          with:
-            ref: main
-        - uses: actions/setup-node@v4
-          with:
-            node-version: '20.x'
-        - run: npm pkg set version=${{ github.event.release.tag_name }}
-        - name: Set package name
-          run: |
-            NPM_SCOPE="${{ vars.NPM_SCOPE || env.NPM_SCOPE || secrets.NPM_SCOPE || github.repository_owner }}"
-            PACKAGE_NAME="@${NPM_SCOPE##*@}/${{ github.event.repository.name }}"
-            npm pkg set name="${PACKAGE_NAME}"
-            echo "PACKAGE_NAME=${PACKAGE_NAME}"
-        - name: Set package url
-          run: npm pkg set 'repository.url'="${{ github.event.repository.html_url }}.git"
+  commit-change:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+      - run: npm pkg set version=${{ github.event.release.tag_name }}
+      - name: Set package name
+        run: |
+          NPM_SCOPE="${{ vars.NPM_SCOPE || env.NPM_SCOPE || secrets.NPM_SCOPE || github.repository_owner }}"
+          PACKAGE_NAME="@${NPM_SCOPE##*@}/${{ github.event.repository.name }}"
+          npm pkg set name="${PACKAGE_NAME}"
+          echo "PACKAGE_NAME=${PACKAGE_NAME}"
+      - name: Set package url
+        run: npm pkg set 'repository.url'="${{ github.event.repository.html_url }}.git"
 
-        - name: Install dependencies if exists
-          run: |
-            INSTALL_PACKAGE="${{ vars.PACKAGES || env.PACKAGES || secrets.PACKAGES }}"
-            if [ ! -z "${INSTALL_PACKAGE}" ]; then
-              npm install ${INSTALL_PACKAGE}
-            fi
+      - name: Install preconfig dependencies if exists
+        run: |
+          INSTALL_PACKAGE="${{ vars.PACKAGES || env.PACKAGES || secrets.PACKAGES }}"
+          if [ ! -z "${INSTALL_PACKAGE}" ]; then
+            npm install ${INSTALL_PACKAGE}
+          fi
 
-        - run: npm ci
-        - uses: stefanzweifel/git-auto-commit-action@v5
-          with:
-            commit_message: "Bump version ${{ github.event.release.tag_name }}"
-            file_pattern: package.json package-lock.json
-            push_options: --force
+      - name: Get all packages in repo
+        if: ${{ hashFiles('.installed') == '' }}
+        run: |
+          curl -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -H "Accept: application/vnd.github.v3+json" -s "https://api.github.com/orgs/${{ github.repository_owner }}/repos" | jq -r '.[].full_name' > .installed
 
-        - name: Change tag reference
-          run: |
-            git config user.name github-actions
-            git config user.email github-actions@github.com
-            git tag -fa ${{ github.event.release.tag_name }} -m "Release version ${{ github.event.release.tag_name }}"
-            git push origin -f --tags
+          for package in $(cat .installed); do
+            curl -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -H "Accept: application/vnd.github.v3+json" -s "https://api.github.com/repos/${package}/contents/package.json" | jq -r '.[].name' >> .packages
+          done
 
-        - name: Dispatch event
-          uses: peter-evans/repository-dispatch@v3
-          with:
-            repository: ${{ github.event.repository.full_name }}
-            event-type: commit-change
-            client-payload: '{"tag_name": "${{ github.event.release.tag_name }}"}'
+          for package in $(cat .packages); do
+            npm install ${package}
+          done
+
+          rm .packages
+
+      - name: Reinstall dependencies
+        run: npm ci
+
+      - name: Add tea file if not exists
+        if: ${{ hashFiles('tea.yaml') == '' }}
+        run: |
+          if [ ! -z "${{ vars.TEA_YAML || env.TEA_YAML || secrets.TEA_YAML }}" ]; then
+            echo "${{ vars.TEA_YAML || env.TEA_YAML || secrets.TEA_YAML }}" > tea.yaml
+          fi
+
+      - uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: 'Bump version ${{ github.event.release.tag_name }}'
+          file_pattern: package.json package-lock.json
+          push_options: --force
+
+      - name: Change tag reference
+        run: |
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git tag -fa ${{ github.event.release.tag_name }} -m "Release version ${{ github.event.release.tag_name }}"
+          git push origin -f --tags
+
+      - name: Dispatch event
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          repository: ${{ github.event.repository.full_name }}
+          event-type: commit-change
+          client-payload: '{"tag_name": "${{ github.event.release.tag_name }}"}'
