@@ -38,7 +38,9 @@ jobs:
           curl -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -H "Accept: application/vnd.github.v3+json" -s "https://api.github.com/orgs/${{ github.repository_owner }}/repos" | jq -r '.[].full_name' > .installed
 
           for package in $(cat .installed); do
-            curl -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -H "Accept: application/vnd.github.v3+json" -s "https://api.github.com/repos/${package}/contents/package.json" | jq -r '.[].name' >> .packages
+            if [ "${{ github.event.repository.full_name }}" != "${package}" ]; then
+              curl -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -s "https://raw.githubusercontent.com/${package}/main/package.json" | jq -r '.name' >> .packages
+            fi
           done
 
           for package in $(cat .packages); do
