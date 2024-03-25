@@ -44,7 +44,7 @@ jobs:
                   continue
                 fi
               fi
-              curl -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -s "https://raw.githubusercontent.com/${package}/main/package.json" | jq -r '.name' >> .packages
+              curl -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -s "https://raw.githubusercontent.com/${package}/main/package.json" | jq -r '.name' >> .packages || echo "Failed: ${package}"
               echo "Done: ${package}"
             fi
           done
@@ -57,7 +57,7 @@ jobs:
                 continue
               fi
             fi
-            npm install ${package};
+            npm install ${package} || echo "Failed: ${package}"
           done;
 
           rm .packages
